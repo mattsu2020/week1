@@ -1,4 +1,3 @@
-// [assignment] please copy the entire modified sudoku.circom here
 pragma circom 2.0.3;
 
 include "../node_modules/circomlib-matrix/circuits/matAdd.circom";
@@ -7,32 +6,6 @@ include "../node_modules/circomlib-matrix/circuits/matElemSum.circom";
 include "../node_modules/circomlib-matrix/circuits/matElemPow.circom";
 include "../node_modules/circomlib/circuits/poseidon.circom";
 //[assignment] include your RangeProof template here
-include "../node_modules/circomlib/circuits/comparators.circom";
-
-template RangeProof(n) {
-    assert(n <= 252);
-    signal input in; // this is the number to be proved inside the range
-    signal input range[2]; // the two elements should be the range, i.e. [lower bound, upper bound]
-    signal output out;
-    signal hOut;
-    signal lOut;
-
-    component low = LessEqThan(n);
-    component high = GreaterEqThan(n);
-
-    high.in[0] <== in;
-    high.in[1] <== range[0];
-    hOut <== high.out;
-    hOut * (hOut - 1) === 0;
-
-    // less than upperbound
-    low.in[0] <== in;
-    low.in[1] <== range[1];
-    lOut <== low.out;
-    lOut * (lOut - 1) === 0;
-
-    out <== hOut * lOut;
-}
 
 template sudoku() {
     signal input puzzle[9][9]; // 0  where blank
@@ -42,31 +15,19 @@ template sudoku() {
     // check whether the solution is zero everywhere the puzzle has values (to avoid trick solution)
 
     component mul = matElemMul(9,9);
-
+    
     //[assignment] hint: you will need to initialize your RangeProof components here
-    component ARangeProofs[9][9];
-    component BRangeProofs[9][9];
-
+    
     for (var i=0; i<9; i++) {
         for (var j=0; j<9; j++) {
-            ARangeProofs[i][j] = RangeProof(4);
-            BRangeProofs[i][j] = RangeProof(4);
-
-            ARangeProofs[i][j].in <== puzzle[i][j];
-            ARangeProofs[i][j].range[0] <== 0;
-            ARangeProofs[i][j].range[1] <== 9;
-            ARangeProofs[i][j].out === 1;
-
-            BRangeProofs[i][j].in <== solution[i][j];
-            BRangeProofs[i][j].range[0] <== 0;
-            BRangeProofs[i][j].range[1] <== 9;
-            BRangeProofs[i][j].out === 1;
-
+            assert(puzzle[i][j]>=0); //[assignment] change assert() to use your created RangeProof instead
+            assert(puzzle[i][j]<=9); //[assignment] change assert() to use your created RangeProof instead
+            assert(solution[i][j]>=0); //[assignment] change assert() to use your created RangeProof instead
+            assert(solution[i][j]<=9); //[assignment] change assert() to use your created RangeProof instead
             mul.a[i][j] <== puzzle[i][j];
             mul.b[i][j] <== solution[i][j];
         }
     }
-
     for (var i=0; i<9; i++) {
         for (var j=0; j<9; j++) {
             mul.out[i][j] === 0;
@@ -76,7 +37,7 @@ template sudoku() {
     // sum up the two inputs to get full solution and square the full solution
 
     component add = matAdd(9,9);
-
+    
     for (var i=0; i<9; i++) {
         for (var j=0; j<9; j++) {
             add.a[i][j] <== puzzle[i][j];
@@ -100,6 +61,7 @@ template sudoku() {
     component rowSq[9];
     component colSq[9];
     component blockSq[9];
+
 
     for (var k=0; k<9; k++) {
         row[k] = matElemSum(1,9);
@@ -133,13 +95,14 @@ template sudoku() {
         colSq[k].out === 285;
         blockSq[k].out === 285;
     }
+
     // hash the original puzzle and emit so that the dapp can listen for puzzle solved events
 
     component poseidon[9];
     component hash;
 
     hash = Poseidon(9);
-
+    
     for (var i=0; i<9; i++) {
         poseidon[i] = Poseidon(9);
         for (var j=0; j<9; j++) {
